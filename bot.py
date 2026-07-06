@@ -33,9 +33,13 @@ SYSTEM_PROMPT = (
 )
 
 def get_ai_response(user_text):
-    url = "https://api-inference.huggingface.co/models/Qwen/Qwen2.5-72B-Instruct"
+    # Меняем модель на стабильную Llama-3-8B
+    url = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
     headers = {"Authorization": f"Bearer {HF_API_KEY}"}
-    prompt = f"<|im_start|>system\n{SYSTEM_PROMPT}<|im_end|>\n<|im_start|>user\n{user_text}<|im_end|>\n<|im_start|>assistant\n"
+    
+    # Форматируем промпт под Лламу
+    prompt = f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n{SYSTEM_PROMPT}<|eot_id|><|start_header_id|>user<|end_header_id|>\n{user_text}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n"
+    
     payload = {
         "inputs": prompt,
         "parameters": {"max_new_tokens": 150, "temperature": 0.8, "return_full_text": False}
@@ -46,11 +50,14 @@ def get_ai_response(user_text):
             result = response.json()
             if isinstance(result, list) and len(result) > 0:
                 text = result[0].get('generated_text', '')
-                return text.split("<|im_end|>")[0].strip()
-        return "Что-то меня переклинило, бро. Повтори-ка."
+                return text.strip()
+            elif isinstance(result, dict) and 'generated_text' in result:
+                return result['generated_text'].strip()
+        
+        # Если Hugging Face вернул ошибку, бот сам скажет код ошибки (например, 401 или 503)
+        return f"Ошибка ИИ: код {response.status_code}. Хьюстон, у нас проблемы."
     except Exception as e:
-        print(f"Ошибка ИИ: {e}")
-        return "Мозги плавятся, не могу ответить."
+        return f"Ошибка кода: {str(e)[:50]}"
 
 @bot.message_handler(commands=['start'])
 def start(message):
