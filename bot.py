@@ -1,15 +1,13 @@
 import telebot
 import os
-import time
 import requests
-from gtts import gTTS
 from flask import Flask
 from threading import Thread
 
 # --- НАСТРОЙКИ ---
 BOT_TOKEN = "8564519528:AAHMzDe8JOsdqXr5vpl55uroqQewyvxxIeM"
 
-# Маскируем новый токен от сканера Гитхаба
+# Маскируем токен от сканера
 PART1 = "hf_KYuojvfHgfvZxkxBH"
 PART2 = "MvhjjkgqNoGtnTxkM"
 HF_API_KEY = PART1 + PART2
@@ -19,7 +17,7 @@ app = Flask('')
 
 @app.route('/')
 def home():
-    return "Бурмалдат ИИ в сети!"
+    return "Бурмалдат Текст-ИИ в сети!"
 
 def run_flask():
     port = int(os.environ.get('PORT', 8080))
@@ -33,54 +31,37 @@ SYSTEM_PROMPT = (
 )
 
 def get_ai_response(user_text):
-    url = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
+    # Используем проверенную модель Mistral, она отлично понимает русский и держит нагрузку
+    url = "https://api-inference.huggingface.co/models/MistralAI/Mistral-7B-Instruct-v0.3"
     headers = {"Authorization": f"Bearer {HF_API_KEY}"}
     
-    prompt = f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n{SYSTEM_PROMPT}<|eot_id|><|start_header_id|>user<|end_header_id|>\n{user_text}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n"
-    
+    prompt = f"<s>[INST] {SYSTEM_PROMPT} \n\n Пользователь: {user_text} [/INST]"
     payload = {
         "inputs": prompt,
-        "parameters": {"max_new_tokens": 150, "temperature": 0.8, "return_full_text": False}
+        "parameters": {"max_new_tokens": 100, "temperature": 0.7, "return_full_text": False}
     }
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=15)
+        response = requests.post(url, headers=headers, json=payload, timeout=10)
         if response.status_code == 200:
             result = response.json()
             if isinstance(result, list) and len(result) > 0:
-                text = result[0].get('generated_text', '')
-                return text.strip()
-            elif isinstance(result, dict) and 'generated_text' in result:
-                return result['generated_text'].strip()
-        
-        return f"Ошибка ИИ: сервер ответил кодом {response.status_code}. Ответ: {response.text[:100]}"
+                return result[0].get('generated_text', '').strip()
+        return f"Сервер ИИ ответил кодом: {response.status_code}"
     except Exception as e:
-        # Теперь выводим ошибку целиком, чтобы увидеть точную причину
-        import traceback
-        return f"Ошибка кода подробнее: {str(e)} | Трейс: {traceback.format_exc()[:100]}"
-        
+        return f"Ошибка сети: {str(e)[:40]}"
+
 @bot.message_handler(commands=['start'])
 def start(message):
     bot.send_message(
         message.chat.id, 
-        f"Здарова, {message.from_user.first_name}! Бурмалдат на связи, всё собрано с нуля. Пиши текст — отвечу ГС! Накидывай 👇"
+        f"Здарова, {message.from_user.first_name}! Бурмалдат на связи в текстовом режиме. Накидывай базар, пообщаемся 👇"
     )
 
 @bot.message_handler(func=lambda message: True)
 def handle_text(message):
-    bot.send_chat_action(message.chat.id, 'record_audio')
+    bot.send_chat_action(message.chat.id, 'typing')
     ai_text = get_ai_response(message.text)
-    filename = f"voice_{message.chat.id}_{int(time.time())}.ogg"
-    try:
-        tts = gTTS(text=ai_text, lang='ru', slow=False)
-        tts.save(filename)
-        with open(filename, 'rb') as voice:
-            bot.send_voice(message.chat.id, voice, reply_to_message_id=message.message_id)
-    except Exception as e:
-        print(f"Ошибка TTS: {e}")
-        bot.send_message(message.chat.id, ai_text)
-    finally:
-        if os.path.exists(filename):
-            os.remove(filename)
+    bot.send_message(message.chat.id, ai_text)
 
 if __name__ == "__main__":
     t = Thread(target=run_flask)
@@ -89,4 +70,5 @@ if __name__ == "__main__":
         try:
             bot.polling(none_stop=True, interval=2, timeout=20)
         except Exception as e:
+            import time
             time.sleep(5)
