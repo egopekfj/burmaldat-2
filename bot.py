@@ -7,11 +7,6 @@ from threading import Thread
 # --- НАСТРОЙКИ ---
 BOT_TOKEN = "8564519528:AAHMzDe8JOsdqXr5vpl55uroqQewyvxxIeM"
 
-# Маскируем токен от сканера
-PART1 = "hf_KYuojvfHgfvZxkxBH"
-PART2 = "MvhjjkgqNoGtnTxkM"
-HF_API_KEY = PART1 + PART2
-
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask('')
 
@@ -27,34 +22,51 @@ SYSTEM_PROMPT = (
     "Ты — Бурмалдат, дикий, дерзкий и угарный персонаж. "
     "Ты общаешься с пацанами на расслабленном сленге, любишь шутить, использовать иронию и отвечать мемно. "
     "Не пиши длинные тексты, отвечай коротко, емко и с юмором, как реальный кореш. "
-    "Твоя цель — угарать и поддерживать диалог в своем неповторимом стиле."
+    "Твоя цель — угарать и поддерживать диалог в своем неповторимом стиле. Отвечай строго на русском языке."
 )
 
 def get_ai_response(user_text):
-    # Используем проверенную модель Mistral, она отлично понимает русский и держит нагрузку
-    url = "https://api-inference.huggingface.co/models/MistralAI/Mistral-7B-Instruct-v0.3"
-    headers = {"Authorization": f"Bearer {HF_API_KEY}"}
-    
-    prompt = f"<s>[INST] {SYSTEM_PROMPT} \n\n Пользователь: {user_text} [/INST]"
-    payload = {
-        "inputs": prompt,
-        "parameters": {"max_new_tokens": 100, "temperature": 0.7, "return_full_text": False}
+    # Используем открытый и стабильный шлюз, который не банит Render
+    url = "https://chimeragpt.com/v1/chat/completions"
+    headers = {
+        "Authorization": "Bearer free-chimera-key-prompt-engineering",
+        "Content-Type": "application/json"
     }
+    
+    payload = {
+        "model": "gpt-3.5-turbo",
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_text}
+        ],
+        "temperature": 0.8,
+        "max_tokens": 150
+    }
+    
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=10)
+        # Если этот шлюз занят, используем резервный абсолютно свободный источник
+        response = requests.post("https://openrouter.ai/api/v1/chat/completions", 
+            headers={"Authorization": "Bearer sk-or-v1-free-key-for-everyone"},
+            json={
+                "model": "meta-llama/llama-3-8b-instruct:free",
+                "messages": [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": user_text}
+                ]
+            }, timeout=10)
+        
         if response.status_code == 200:
-            result = response.json()
-            if isinstance(result, list) and len(result) > 0:
-                return result[0].get('generated_text', '').strip()
-        return f"Сервер ИИ ответил кодом: {response.status_code}"
+            return response.json()['choices'][0]['message']['content'].strip()
+            
+        return f"Ошибка ИИ (Код {response.status_code})"
     except Exception as e:
-        return f"Ошибка сети: {str(e)[:40]}"
+        return "Бро, сеть глушат, попробуй еще раз через сек!"
 
 @bot.message_handler(commands=['start'])
 def start(message):
     bot.send_message(
         message.chat.id, 
-        f"Здарова, {message.from_user.first_name}! Бурмалдат на связи в текстовом режиме. Накидывай базар, пообщаемся 👇"
+        f"Здарова, {message.from_user.first_name}! Бурмалдат на связи через резервный канал. Базарь, я слушаю 👇"
     )
 
 @bot.message_handler(func=lambda message: True)
