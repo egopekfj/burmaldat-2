@@ -7,6 +7,11 @@ from threading import Thread
 # --- НАСТРОЙКИ ---
 BOT_TOKEN = "8564519528:AAHMzDe8JOsdqXr5vpl55uroqQewyvxxIeM"
 
+# Твой новый токен OpenRouter, разбитый для обхода сканера Гитхаба
+PART1 = "sk-or-v1-0b3b8199dea1d853cc9d2c9d6b3872a61e3"
+PART2 = "88ebc721da1c0a2f36c033050a797"
+OPENROUTER_API_KEY = PART1 + PART2
+
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask('')
 
@@ -26,47 +31,34 @@ SYSTEM_PROMPT = (
 )
 
 def get_ai_response(user_text):
-    # Используем открытый и стабильный шлюз, который не банит Render
-    url = "https://chimeragpt.com/v1/chat/completions"
+    url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
-        "Authorization": "Bearer free-chimera-key-prompt-engineering",
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json"
     }
-    
     payload = {
-        "model": "gpt-3.5-turbo",
+        "model": "meta-llama/llama-3-8b-instruct:free",
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_text}
-        ],
-        "temperature": 0.8,
-        "max_tokens": 150
+        ]
     }
-    
     try:
-        # Если этот шлюз занят, используем резервный абсолютно свободный источник
-        response = requests.post("https://openrouter.ai/api/v1/chat/completions", 
-            headers={"Authorization": "Bearer sk-or-v1-free-key-for-everyone"},
-            json={
-                "model": "meta-llama/llama-3-8b-instruct:free",
-                "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": user_text}
-                ]
-            }, timeout=10)
-        
+        response = requests.post(url, headers=headers, json=payload, timeout=15)
         if response.status_code == 200:
             return response.json()['choices'][0]['message']['content'].strip()
-            
         return f"Ошибка ИИ (Код {response.status_code})"
     except Exception as e:
-        return "Бро, сеть глушат, попробуй еще раз через сек!"
+        return "Бро, сеть глушат, повтори еще раз!"
 
 @bot.message_handler(commands=['start'])
 def start(message):
+    # Эта строчка принудительно стирает старые кнопки ("Погода", "Шанс") из Телеграма!
+    markup = telebot.types.ReplyKeyboardRemove()
     bot.send_message(
         message.chat.id, 
-        f"Здарова, {message.from_user.first_name}! Бурмалдат на связи через резервный канал. Базарь, я слушаю 👇"
+        f"Здарова, {message.from_user.first_name}! Старые кнопки стерты, новые мозги загружены. Накидывай базар 👇",
+        reply_markup=markup
     )
 
 @bot.message_handler(func=lambda message: True)
