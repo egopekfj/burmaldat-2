@@ -36,20 +36,33 @@ def get_ai_response(user_text):
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json"
     }
-    payload = {
-       "model": "meta-llama/llama-4-scout:free",
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_text}
-        ]
-    }
-    try:
-        response = requests.post(url, headers=headers, json=payload, timeout=15)
-        if response.status_code == 200:
-            return response.json()['choices'][0]['message']['content'].strip()
-        return f"Ошибка ИИ (Код {response.status_code})"
-    except Exception as e:
-        return "Бро, сеть глушат, повтори еще раз!"
+    
+    # Список моделей: сначала пробуем основную, если она выдаст ошибку — переключаемся на резервную
+    models_to_try = [
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "mistralai/mistral-7b-instruct:free"
+    ]
+    
+    for model in models_to_try:
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_text}
+            ]
+        }
+        try:
+            response = requests.post(url, headers=headers, json=payload, timeout=12)
+            if response.status_code == 200:
+                return response.json()['choices'][0]['message']['content'].strip()
+            
+            # Если код не 200, пишем в консоль Рендера для отладки и идем к следующей модели
+            print(f"Модель {model} вернула статус {response.status_code}, пробуем следующую...")
+        except Exception as e:
+            print(f"Ошибка при запросе к {model}: {e}")
+            continue
+            
+    return "Бро, все линии заняты, штурмуй сервер еще раз через сек!"
 
 @bot.message_handler(commands=['start'])
 def start(message):
