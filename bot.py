@@ -33,11 +33,9 @@ SYSTEM_PROMPT = (
 )
 
 def get_ai_response(user_text):
-    # Меняем модель на стабильную Llama-3-8B
     url = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
     headers = {"Authorization": f"Bearer {HF_API_KEY}"}
     
-    # Форматируем промпт под Лламу
     prompt = f"<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n{SYSTEM_PROMPT}<|eot_id|><|start_header_id|>user<|end_header_id|>\n{user_text}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n"
     
     payload = {
@@ -54,11 +52,12 @@ def get_ai_response(user_text):
             elif isinstance(result, dict) and 'generated_text' in result:
                 return result['generated_text'].strip()
         
-        # Если Hugging Face вернул ошибку, бот сам скажет код ошибки (например, 401 или 503)
-        return f"Ошибка ИИ: код {response.status_code}. Хьюстон, у нас проблемы."
+        return f"Ошибка ИИ: сервер ответил кодом {response.status_code}. Ответ: {response.text[:100]}"
     except Exception as e:
-        return f"Ошибка кода: {str(e)[:50]}"
-
+        # Теперь выводим ошибку целиком, чтобы увидеть точную причину
+        import traceback
+        return f"Ошибка кода подробнее: {str(e)} | Трейс: {traceback.format_exc()[:100]}"
+        
 @bot.message_handler(commands=['start'])
 def start(message):
     bot.send_message(
