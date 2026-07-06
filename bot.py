@@ -37,7 +37,7 @@ def get_ai_response(user_text):
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "meta-llama/llama-3-8b-instruct:free",
+       "model": "meta-llama/llama-4-scout:free",
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_text}
