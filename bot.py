@@ -32,16 +32,23 @@ SYSTEM_PROMPT = (
 
 def get_ai_response(user_text):
     url = "https://openrouter.ai/api/v1/chat/completions"
+    
+    # СЕКРЕТНЫЙ ИНГРЕДИЕНТ: Представляемся серверу, чтобы пустили к бесплатным моделям
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://github.com/burmaldat", 
+        "X-Title": "Burmaldat Bot"
     }
     
-    # Список моделей: сначала пробуем основную, если она выдаст ошибку — переключаемся на резервную
+    # Самые свежие и стабильные бесплатные модели
     models_to_try = [
-        "meta-llama/llama-3.3-70b-instruct:free",
-        "mistralai/mistral-7b-instruct:free"
+        "meta-llama/llama-3.1-8b-instruct:free",
+        "google/gemma-2-9b-it:free",
+        "qwen/qwen-2.5-7b-instruct:free"
     ]
+    
+    last_error = ""
     
     for model in models_to_try:
         payload = {
@@ -52,17 +59,18 @@ def get_ai_response(user_text):
             ]
         }
         try:
-            response = requests.post(url, headers=headers, json=payload, timeout=12)
+            response = requests.post(url, headers=headers, json=payload, timeout=15)
             if response.status_code == 200:
                 return response.json()['choices'][0]['message']['content'].strip()
-            
-            # Если код не 200, пишем в консоль Рендера для отладки и идем к следующей модели
-            print(f"Модель {model} вернула статус {response.status_code}, пробуем следующую...")
+            else:
+                last_error = f"Код {response.status_code}: {response.text[:100]}"
+                print(f"Ошибка {model}: {last_error}")
         except Exception as e:
-            print(f"Ошибка при запросе к {model}: {e}")
-            continue
+            last_error = f"Сбой сети: {str(e)[:50]}"
+            print(f"Сбой {model}: {last_error}")
             
-    return "Бро, все линии заняты, штурмуй сервер еще раз через сек!"
+    # Если ВСЕ три модели упали, выводим точную причину прямо тебе в Телеграм
+    return f"Бро, всё упало. Вот что говорит сервер: {last_error}"
 
 @bot.message_handler(commands=['start'])
 def start(message):
