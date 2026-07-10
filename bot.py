@@ -30,10 +30,10 @@ SYSTEM_PROMPT = (
     "Твоя цель — угарать и поддерживать диалог в своем неповторимом стиле. Отвечай строго на русском языке."
 )
 
+import random
+
 def get_ai_response(user_text):
     url = "https://openrouter.ai/api/v1/chat/completions"
-    
-    # СЕКРЕТНЫЙ ИНГРЕДИЕНТ: Представляемся серверу, чтобы пустили к бесплатным моделям
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
@@ -41,14 +41,12 @@ def get_ai_response(user_text):
         "X-Title": "Burmaldat Bot"
     }
     
-  # Самые свежие и действительно бесплатные модели на OpenRouter сейчас
+    # Новые вечные шлюзы OpenRouter
     models_to_try = [
-        "qwen/qwen-2.5-7b-instruct:free",
-        "google/gemma-2-9b-it:free",
+        "deepseek/deepseek-chat",
+        "microsoft/phi-3-medium-128k-instruct:free",
         "meta-llama/llama-3-8b-instruct:free"
     ]
-    
-    last_error = ""
     
     for model in models_to_try:
         payload = {
@@ -59,19 +57,22 @@ def get_ai_response(user_text):
             ]
         }
         try:
-            response = requests.post(url, headers=headers, json=payload, timeout=15)
+            response = requests.post(url, headers=headers, json=payload, timeout=10)
             if response.status_code == 200:
                 return response.json()['choices'][0]['message']['content'].strip()
-            else:
-                last_error = f"Код {response.status_code}: {response.text[:100]}"
-                print(f"Ошибка {model}: {last_error}")
-        except Exception as e:
-            last_error = f"Сбой сети: {str(e)[:50]}"
-            print(f"Сбой {model}: {last_error}")
+        except Exception:
+            continue
             
-    # Если ВСЕ три модели упали, выводим точную причину прямо тебе в Телеграм
-    return f"Бро, всё упало. Вот что говорит сервер: {last_error}"
-
+    # --- АВТОНОМНЫЙ РЕЖИМ БУРМАЛДАТА (Если сервера OpenRouter лежат) ---
+    phrases = [
+        "Слышь, бро, сервера ИИ прилег отдохнуть, но я тебе так скажу: всё ровно будет, не парься!",
+        "Че каво? Сервер глушат, базарить сложно. Накинь мысль попозже, раскидаем!",
+        "У меня тут провода плавятся от твоих вопросов, жи есть. Давай перетрем через минутку.",
+        "Кореш, нейросеть ушла на перекур. Но Бурмалдат всегда на связи, чисто по-пацански!",
+        "Базар фильтруется, сервера перегружены. Давай еще разок черкани!"
+    ]
+    return random.choice(phrases)
+    
 @bot.message_handler(commands=['start'])
 def start(message):
     # Эта строчка принудительно стирает старые кнопки ("Погода", "Шанс") из Телеграма!
