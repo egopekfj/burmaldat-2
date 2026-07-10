@@ -1,15 +1,28 @@
 import os
 import random
 import requests
+from threading import Thread
+from flask import Flask
 from telebot import TeleBot, types
 
-# Теперь всё максимально безопасно. Сервер Render сам подставит ключи из своих настроек.
+# Инициализируем крошечный веб-сервер для обмана Render
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Бурмалдат на связи и кодит!"
+
+def run_web_server():
+    # Render автоматически выдает порт в переменную окружения PORT
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
+
+# Загружаем ключи из переменных окружения
 API_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
 bot = TeleBot(API_TOKEN)
 
-# Базовый жесткий промпт
 SYSTEM_PROMPT = (
     "Ты — Бурмалдат, максимально дикий, дерзкий и угарный персонаж из реальных пацанов. "
     "Ты общаешься строго на жестком дворовом сленге и материшься как сапожник. "
@@ -18,7 +31,6 @@ SYSTEM_PROMPT = (
     "Отвечай средней длины пацанскими телегами, четко и по делу, без лишней воды. Отвечай строго на русском."
 )
 
-# Словарь для хранения памяти диалогов {chat_id: [messages]}
 context_memory = {}
 
 def get_ai_response(chat_id, user_text, special_mode=None):
@@ -113,4 +125,9 @@ def handle_all_messages(message):
         bot.send_message(chat_id, answer, reply_markup=get_main_keyboard())
 
 if __name__ == '__main__':
+    # Запускаем веб-сервер Flask в отдельном потоке, чтобы он не мешал боту
+    server_thread = Thread(target=run_web_server)
+    server_thread.start()
+    
+    # Запускаем опрос Телеграма
     bot.infinity_polling()
