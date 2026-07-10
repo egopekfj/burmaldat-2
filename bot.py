@@ -1,13 +1,13 @@
 import os
 import random
 import requests
-from telebot import Telebot, types
+from telebot import TeleBot, types
 
 # Загружаем ключи из переменных окружения Render
 API_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
-bot = Telebot(API_TOKEN)
+bot = TeleBot(API_TOKEN)
 
 # Базовый жесткий промпт
 SYSTEM_PROMPT = (
