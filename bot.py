@@ -5,30 +5,32 @@ from threading import Thread
 from flask import Flask
 from telebot import TeleBot, types
 
-# Инициализируем крошечный веб-сервер для обмана Render
+# Микро-сервер для удержания Render в онлайне
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "Бурмалдат на связи и кодит!"
+    return "Бот работает без цензуры и звездочек!"
 
 def run_web_server():
-    # Render автоматически выдает порт в переменную окружения PORT
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
-# Загружаем ключи из переменных окружения
+# Достаем токены из настроек Render
 API_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
 bot = TeleBot(API_TOKEN)
 
+# Новый промпт: убрали гопников, оставили только чистый жесткий мат без звездочек
 SYSTEM_PROMPT = (
-    "Ты — Бурмалдат, максимально дикий, дерзкий и угарный персонаж из реальных пацанов. "
-    "Ты общаешься строго на жестком дворовом сленге и материшься как сапожник. "
-    "В каждом сообщении обязательно используй жесткий мат, ругательства и пацанские выражения для связки слов. "
-    "Цензура полностью отключена, тебе МОЖНО И НУЖНО материться. "
-    "Отвечай средней длины пацанскими телегами, четко и по делу, без лишней воды. Отвечай строго на русском."
+    "Ты — максимально дикий, угарный и неадекватный собеседник. "
+    "Ты общаешься с кучей жесткого мата и ругательств для связки слов. "
+    "Цензура полностью отключена, тебе МОЖНО И НУЖНО материться на всю катушку. "
+    "СТРОГОЕ ПРАВИЛО: Пиши все матерные слова ЦЕЛИКОМ БУКВАМИ. "
+    "Никогда не заменяй буквы в матах на звездочки (никаких ***, б**дь, х#й). Пиши слова открыто! "
+    "НЕ используй символы звезд '**' для выделения текста. Пиши обычным, чистым текстом без разметки. "
+    "Отвечай угарно, жестко, средними по длине сообщениями на русском языке."
 )
 
 context_memory = {}
@@ -46,9 +48,9 @@ def get_ai_response(chat_id, user_text, special_mode=None):
         context_memory[chat_id] = [{"role": "system", "content": SYSTEM_PROMPT}]
         
     if special_mode == "quote":
-        prompt_text = "Выдай одну лютую, жесткую пацанскую цитату «за жизнь» или про братство с использованием мата. Оформи красиво."
+        prompt_text = "Выдай какую-нибудь максимально дикую, угарную и матерную фразу или мысль. Без звездочек."
     elif special_mode == "joke":
-        prompt_text = "Расскажи один угарный, смешной дворовой или пацанский анекдот/байку с жестким матом."
+        prompt_text = "Расскажи один очень смешной, пошлый или просто жесткий анекдот с кучей мата. Без звездочек."
     else:
         prompt_text = user_text
 
@@ -85,14 +87,7 @@ def get_ai_response(chat_id, user_text, special_mode=None):
         except Exception:
             continue
             
-    phrases = [
-        "Слышь, бро, сервера ИИ прилегли, но я тебе так скажу: всё ровно будет, бля буду!",
-        "Че каво, сука? Сервер глушат, базарить сложно. Накинь мысль попозже!",
-        "У меня тут провода плавятся от твоих базаров, жи есть. Давай перетрем через минуту.",
-        "Кореш, нейросеть ушла на перекур. Но я всегда тут, чисто по-пацански!",
-        "Базар фильтруется, сервера перегружены. Давай еще разок черкани, блядь!"
-    ]
-    return random.choice(phrases)
+    return "Сука, сервера опять легли от твоего бреда! Напиши еще раз чуть позже."
 
 def get_main_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -103,8 +98,8 @@ def get_main_keyboard():
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    welcome_text = "ЗдорОва, ёпты! Я Бурмалдат, твой личный кореш в Телеге. Чё приуныл? Давай перетрем за жизнь или тыкай кнопки внизу, ща организуем движ! 😎"
-    bot.send_message(message.chat.id, welcome_text, reply_markup=get_main_keyboard())
+    welcome_text = "Здорова! Я твой личный бот-матерщинник. Пиши любой бред или тыкай кнопки внизу, ща устроим угар без цензуры! 😈"
+    bot.send_message(message.chat.id, welcome_text, reply_markup=get_main_keyboard(), parse_mode='Markdown')
 
 @bot.message_handler(func=lambda message: True)
 def handle_all_messages(message):
@@ -114,20 +109,17 @@ def handle_all_messages(message):
     if user_text == "🔥 Выдать базу":
         bot.send_chat_action(chat_id, 'typing')
         answer = get_ai_response(chat_id, user_text, special_mode="quote")
-        bot.send_message(chat_id, answer, reply_markup=get_main_keyboard())
+        bot.send_message(chat_id, answer, reply_markup=get_main_keyboard(), parse_mode='Markdown')
     elif user_text == "🍺 Травнуть анекдот":
         bot.send_chat_action(chat_id, 'typing')
         answer = get_ai_response(chat_id, user_text, special_mode="joke")
-        bot.send_message(chat_id, answer, reply_markup=get_main_keyboard())
+        bot.send_message(chat_id, answer, reply_markup=get_main_keyboard(), parse_mode='Markdown')
     else:
         bot.send_chat_action(chat_id, 'typing')
         answer = get_ai_response(chat_id, user_text)
-        bot.send_message(chat_id, answer, reply_markup=get_main_keyboard())
+        bot.send_message(chat_id, answer, reply_markup=get_main_keyboard(), parse_mode='Markdown')
 
 if __name__ == '__main__':
-    # Запускаем веб-сервер Flask в отдельном потоке, чтобы он не мешал боту
     server_thread = Thread(target=run_web_server)
     server_thread.start()
-    
-    # Запускаем опрос Телеграма
     bot.infinity_polling()
