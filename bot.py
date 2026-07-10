@@ -10,7 +10,7 @@ app = Flask('')
 
 @app.route('/')
 def home():
-    return "Бот работает без цензуры и звездочек!"
+    return "Оракул со скакалкой в сети!"
 
 def run_web_server():
     port = int(os.environ.get("PORT", 8080))
@@ -22,7 +22,7 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
 bot = TeleBot(API_TOKEN)
 
-# Новый промпт: убрали гопников, оставили только чистый жесткий мат без звездочек
+# Инструкция для ИИ: чистый мат, угар и полнейший абсурд
 SYSTEM_PROMPT = (
     "Ты — максимально дикий, угарный и неадекватный собеседник. "
     "Ты общаешься с кучей жесткого мата и ругательств для связки слов. "
@@ -51,6 +51,14 @@ def get_ai_response(chat_id, user_text, special_mode=None):
         prompt_text = "Выдай какую-нибудь максимально дикую, угарную и матерную фразу или мысль. Без звездочек."
     elif special_mode == "joke":
         prompt_text = "Расскажи один очень смешной, пошлый или просто жесткий анекдот с кучей мата. Без звездочек."
+   elif special_mode == "oracle":
+        prompt_text = (
+            "Выдай максимально шизофреничное, абсурдное, упоротое и матерное предсказание будущего в стиле чернушных трендов ТикТока. "
+            "Придумай полный бред, обязательно жестко и сюрреалистично приплети туда семью пользователя "
+            "(например, что из-за совы со скакалкой вся твоя семья улетит в болото, или батя уйдет за хлебом и возглавит восстание чипированных хомяков). "
+            "Смешай этот бред с отборным матом и черным юмором. Никаких звездочек в тексте!"
+        )
+           
     else:
         prompt_text = user_text
 
@@ -93,12 +101,14 @@ def get_main_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     btn_quote = types.KeyboardButton("🔥 Выдать базу")
     btn_joke = types.KeyboardButton("🍺 Травнуть анекдот")
+    btn_oracle = types.KeyboardButton("🔮 Сраный оракул")
     markup.add(btn_quote, btn_joke)
+    markup.add(btn_oracle) # Добавили кнопку оракула
     return markup
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    welcome_text = "Здорова! Я твой личный бот-матерщинник. Пиши любой бред или тыкай кнопки внизу, ща устроим угар без цензуры! 😈"
+    welcome_text = "Здорова! Я твой личный бот-матерщинник. Пиши любой бред или тыкай кнопки внизу. Зацени кнопку оракула, там полный пиздец! 😈"
     bot.send_message(message.chat.id, welcome_text, reply_markup=get_main_keyboard(), parse_mode='Markdown')
 
 @bot.message_handler(func=lambda message: True)
@@ -113,6 +123,10 @@ def handle_all_messages(message):
     elif user_text == "🍺 Травнуть анекдот":
         bot.send_chat_action(chat_id, 'typing')
         answer = get_ai_response(chat_id, user_text, special_mode="joke")
+        bot.send_message(chat_id, answer, reply_markup=get_main_keyboard(), parse_mode='Markdown')
+    elif user_text == "🔮 Сраный оракул":
+        bot.send_chat_action(chat_id, 'typing')
+        answer = get_ai_response(chat_id, user_text, special_mode="oracle")
         bot.send_message(chat_id, answer, reply_markup=get_main_keyboard(), parse_mode='Markdown')
     else:
         bot.send_chat_action(chat_id, 'typing')
