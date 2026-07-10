@@ -41,11 +41,11 @@ def get_ai_response(user_text):
         "X-Title": "Burmaldat Bot"
     }
     
-    # Самые свежие и стабильные бесплатные модели
+   # Полностью обновленный список 100% бесплатных моделей на OpenRouter
     models_to_try = [
-        "meta-llama/llama-3.1-8b-instruct:free",
-        "google/gemma-2-9b-it:free",
-        "qwen/qwen-2.5-7b-instruct:free"
+        "mistralai/mistral-7b-instruct:free",
+        "cognitivecomputations/dolphin-mixtral-8x7b:free",
+        "openchat/openchat-7b:free"
     ]
     
     last_error = ""
