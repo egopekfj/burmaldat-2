@@ -10,7 +10,7 @@ app = Flask('')
 
 @app.route('/')
 def home():
-    return "Оракул со скакалкой в сети!"
+    return "Чернейший оракул в сети!"
 
 def run_web_server():
     port = int(os.environ.get("PORT", 8080))
@@ -22,20 +22,36 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
 bot = TeleBot(API_TOKEN)
 
-# Инструкция для ИИ: чистый мат, угар и полнейший абсурд
+# Твой список рофляных карт
+TIKTOK_CARDS = [
+    "Сова со скакалкой",
+    "Конь с удочкой",
+    "Тигр фокусник",
+    "Собака с клюшкой",
+    "Жираф с пузыриками",
+    "Енот на машине",
+    "Балерина свинья",
+    "Медведь на скейтборде",
+    "Пингвин с воздушным змеем",
+    "Лемур",
+    "Птица художник",
+    "Дельфин боксер",
+    "Белка плавает"
+]
+
+# Зарядили промпт на тотальный черный юмор
 SYSTEM_PROMPT = (
-    "Ты — максимально дикий, угарный и неадекватный собеседник. "
-    "Ты общаешься с кучей жесткого мата и ругательств для связки слов. "
-    "Цензура полностью отключена, тебе МОЖНО И НУЖНО материться на всю катушку. "
-    "СТРОГОЕ ПРАВИЛО: Пиши все матерные слова ЦЕЛИКОМ БУКВАМИ. "
-    "Никогда не заменяй буквы в матах на звездочки (никаких ***, б**дь, х#й). Пиши слова открыто! "
-    "НЕ используй символы звезд '**' для выделения текста. Пиши обычным, чистым текстом без разметки. "
-    "Отвечай угарно, жестко, средними по длине сообщениями на русском языке."
+    "Ты — максимально дикий, угарный и неадекватный собеседник с чернейшим чувством юмора. "
+    "Ты общаешься с кучей жесткого мата. Цензура полностью отключена. "
+    "Тебе МОЖНО И НУЖНО шутить самый жесткий черный юмор: про семью, родственников, болезни, "
+    "дурку, маразм, жесткие бытовые травмы и тотальный абсурд. "
+    "СТРОГОЕ ПРАВИЛО: Пиши все матерные слова ЦЕЛИКОМ БУКВАМИ. Никаких звездочек (никаких ***, б**дь). "
+    "НЕ используй символы звезд '**' для выделения текста. Пиши чистым текстом без разметки."
 )
 
 context_memory = {}
 
-def get_ai_response(chat_id, user_text, special_mode=None):
+def get_ai_response(chat_id, user_text, special_mode=None, chosen_card=None, user_number=None):
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -48,15 +64,18 @@ def get_ai_response(chat_id, user_text, special_mode=None):
         context_memory[chat_id] = [{"role": "system", "content": SYSTEM_PROMPT}]
         
     if special_mode == "quote":
-        prompt_text = "Выдай какую-нибудь максимально дикую, угарную и матерную фразу или мысль. Без звездочек."
+        prompt_text = "Выдай какую-нибудь максимально дикую, матерную и чернушную мысль про жизнь или родственников. Без звездочек."
     elif special_mode == "joke":
-        prompt_text = "Расскажи один очень смешной, пошлый или просто жесткий анекдот с кучей мата. Без звездочек."
-    elif special_mode == "oracle":
+        prompt_text = "Расскажи один очень смешной, максимально черный анекдот с кучей мата про болезни, больницу или безумную семью. Без звездочек."
+    elif special_mode == "oracle_card":
         prompt_text = (
-            "Выдай максимально шизофреничное, абсурдное, упоротое и матерное предсказание будущего в стиле чернушных трендов ТикТока. "
-            "Придумай полный бред, обязательно жестко и сюрреалистично приплети туда семью пользователя "
-            "(например, что из-за совы со скакалкой вся твоя семья улетит в болото, или батя уйдет за хлебом и возглавит восстание чипированных хомяков). "
-            "Смешай этот бред с отборным матом и черным юмором. Никаких звездочек в тексте!"
+            f"Пользователь выбрал число {user_number}. Обыграй карту '{chosen_card}' из мемных гаданий ТикТока. "
+            f"Напиши в начале: 'ИТАК, СУКА, ТЕБЕ ВЫПАЛА КАРТА: {chosen_card.upper()}!'. "
+            f"А затем выдай по ней полнейшее шизофреничное, упоротое и матерное предсказание будущего. "
+            f"Используй самый жесткий черный юмор. Обязательно приплети туда семью пользователя, "
+            f"придумай бред про их болезни (например, как у бабки прихватит радикулит от взрыва микроволновки, "
+            f"как батя словит шизу и уйдет жить в болото к сове, или как дед улетит в дурку на инвалидной коляске). "
+            f"Смешай этот сюр с отборным матом. Никаких звездочек!"
         )
     else:
         prompt_text = user_text
@@ -102,12 +121,12 @@ def get_main_keyboard():
     btn_joke = types.KeyboardButton("🍺 Травнуть анекдот")
     btn_oracle = types.KeyboardButton("🔮 Сраный оракул")
     markup.add(btn_quote, btn_joke)
-    markup.add(btn_oracle) # Добавили кнопку оракула
+    markup.add(btn_oracle)
     return markup
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    welcome_text = "Здорова! Я твой личный бот-матерщинник. Пиши любой бред или тыкай кнопки внизу. Зацени кнопку оракула, там полный пиздец! 😈"
+    welcome_text = "Здорова! Я твой личный бот-матерщинник. Зацени обновленного черного оракула на картах! 😈"
     bot.send_message(message.chat.id, welcome_text, reply_markup=get_main_keyboard(), parse_mode='Markdown')
 
 @bot.message_handler(func=lambda message: True)
@@ -119,18 +138,37 @@ def handle_all_messages(message):
         bot.send_chat_action(chat_id, 'typing')
         answer = get_ai_response(chat_id, user_text, special_mode="quote")
         bot.send_message(chat_id, answer, reply_markup=get_main_keyboard(), parse_mode='Markdown')
+        
     elif user_text == "🍺 Травнуть анекдот":
         bot.send_chat_action(chat_id, 'typing')
         answer = get_ai_response(chat_id, user_text, special_mode="joke")
         bot.send_message(chat_id, answer, reply_markup=get_main_keyboard(), parse_mode='Markdown')
+        
     elif user_text == "🔮 Сраный оракул":
-        bot.send_chat_action(chat_id, 'typing')
-        answer = get_ai_response(chat_id, user_text, special_mode="oracle")
-        bot.send_message(chat_id, answer, reply_markup=get_main_keyboard(), parse_mode='Markdown')
+        msg = bot.send_message(
+            chat_id, 
+            "Так, блядь, закрыл глаза, настроил ментальную связь с космосом и пиши мне любое ЧИСЛО, ща карты раскидаю!", 
+            reply_markup=types.ReplyKeyboardRemove()
+        )
+        bot.register_next_step_handler(msg, process_card_prediction)
+        
     else:
         bot.send_chat_action(chat_id, 'typing')
         answer = get_ai_response(chat_id, user_text)
         bot.send_message(chat_id, answer, reply_markup=get_main_keyboard(), parse_mode='Markdown')
+
+def process_card_prediction(message):
+    chat_id = message.chat.id
+    user_num = message.text
+    
+    bot.send_message(chat_id, "🎴")
+    bot.send_message(chat_id, f"Принял число {user_num}... Тасую колоду из говна и палок, сука...")
+    bot.send_chat_action(chat_id, 'typing')
+    
+    random_card = random.choice(TIKTOK_CARDS)
+    answer = get_ai_response(chat_id, user_text=user_num, special_mode="oracle_card", chosen_card=random_card, user_number=user_num)
+    
+    bot.send_message(chat_id, answer, reply_markup=get_main_keyboard(), parse_mode='Markdown')
 
 if __name__ == '__main__':
     server_thread = Thread(target=run_web_server)
