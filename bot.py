@@ -1,4 +1,5 @@
 import os
+import re
 import random
 import asyncio
 import requests
@@ -24,7 +25,7 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
 bot = TeleBot(API_TOKEN)
 
-# Список карт
+# Список карт для оракула
 TIKTOK_CARDS = [
     "Сова со скакалкой",
     "Конь с удочкой",
@@ -53,7 +54,7 @@ SYSTEM_PROMPT = (
     "СТРОГОЕ ПРАВИЛО: Пиши все матерные слова ЦЕЛИКОМ БУКВАМИ. Никаких звездочек (*). "
     "Каждый раз придумывай новую угарную дичь, не повторяйся. "
     "Отвечай средне (4-7 предложений), выдавай концентрированный и смешной мат. "
-    "НЕ пиши текст капсом. НЕ используй символы '**'. Пиши чистым текстом."
+    "КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО писать весь текст капсом (заглавными буквами)! Пиши обычными маленькими буквами."
 )
 
 # Хранилище контекста и настроек пользователей
@@ -67,6 +68,19 @@ def get_user_data(chat_id):
         }
     return user_settings[chat_id]
 
+# Функция для принудительного исправления капса
+def fix_caps(text):
+    # Если в тексте больше 50% заглавных букв, значит модель сорвалась на ор
+    letters = [char for char in text if char.isalpha()]
+    if letters:
+        caps_ratio = sum(1 for char in letters if char.isupper()) / len(letters)
+        if caps_ratio > 0.5:
+            # Принудительно делаем текст строчным
+            text = text.lower()
+            # Делаем заглавной первую букву каждого предложения (после точки, ! или ? и пробела)
+            text = re.sub(r'(^|[.!?]\s+)([а-яёa-zа-яёa-z])', lambda m: m.group(1) + m.group(2).upper(), text)
+    return text
+
 def get_ai_response(chat_id, user_text, special_mode=None, chosen_card=None, user_number=None, target_friend=None):
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
@@ -79,27 +93,27 @@ def get_ai_response(chat_id, user_text, special_mode=None, chosen_card=None, use
     data = get_user_data(chat_id)
     
     if special_mode == "quote":
-        prompt_text = "Выдай максимально дикую, матерную и чернушную мысль про жизнь, предков или семейку."
+        prompt_text = "Выдай максимально дикую, матерную и чернушную мысль про жизнь, предков или семейку. ПИШИ СТРОГО СТРОЧНЫМИ (МАЛЕНЬКИМИ) БУКВАМИ, БЕЗ КАПСА!"
     elif special_mode == "joke":
-        prompt_text = "Расскажи один смешной и максимально черный анекдот с кучей мата про болезни, безумного батю или тупых родственников."
+        prompt_text = "Расскажи один смешной и максимально черный анекдот с кучей мата про болезни, безумного батю или тупых родственников. ПИШИ СТРОГО СТРОЧНЫМИ (МАЛЕНЬКИМИ) БУКВАМИ, БЕЗ КАПСА!"
     elif special_mode == "oracle_card":
         prompt_text = (
             f"Пользователь выбрал число {user_number}. Твоя главная задача — обыграть карту '{chosen_card}' из мемных гаданий ТикТока. "
-            f"НЕ ПИШИ КАПСОМ. Выдай жесткое, упоротое и матерное предсказание будущего по этой карте. "
+            f"Выдай жесткое, упоротое и матерное предсказание будущего по этой карте. "
             f"Используй черный юмор: приплети туда родоков пользователя (мать, отца, батю, семейку), "
-            f"придумай уникальный, абсурдный сюжет про их нелепые косяки, бытовые катастрофы или маразм. "
-            f"ВАЖНО: Придумай совершенно новый бред! "
-            f"Смешай этот сюр с отборным матом. Никаких звездочек в тексте!"
+            f"придумай уникальный, абсурдный сюжет про их нелепые косяки, бытовые катастрофы, странные болезни или маразм. "
+            f"ВАЖНО: Придумай совершенно новый бред! Смешай этот сюр с отборным матом. Никаких звездочек в тексте! "
+            f"ПИШИ СТРОГО СТРОЧНЫМИ (МАЛЕНЬКИМИ) БУКВАМИ, БЕЗ КАПСА!"
         )
     elif special_mode == "roast":
         prompt_text = (
             f"Напиши жесткий, угарный, матерный наезд (прожарку) на человека по имени {target_friend}. "
             f"Придумай максимально нелепую, абсурдную и шизофреническую историю про него, его косяки, "
-            f"его родоков (батю и мать) или тупых родственников. Сделай это максимально смешно и чернушно. "
-            f"Никаких звездочек в мате, пиши всё целиком! Не пиши капсом."
+            f"его родоков (батю и мать), болезни или тупых родственников. Сделай это максимально смешно и чернушно. "
+            f"Никаких звездочек в мате, пиши всё целиком! ПИШИ СТРОГО СТРОЧНЫМИ (МАЛЕНЬКИМИ) БУКВАМИ, БЕЗ КАПСА!"
         )
     else:
-        prompt_text = user_text
+        prompt_text = user_text + " (ПИШИ СТРОГО МАЛЕНЬКИМИ БУКВАМИ, НЕ ИСПОЛЬЗУЙ КАПС!)"
 
     if not special_mode:
         data["history"].append({"role": "user", "content": prompt_text})
@@ -112,7 +126,6 @@ def get_ai_response(chat_id, user_text, special_mode=None, chosen_card=None, use
         {"role": "user", "content": prompt_text}
     ]
 
-    # Модели с минимальной цензурой
     models_to_try = [
         "meta-llama/llama-3-8b-instruct:nitro",
         "deepseek/deepseek-chat",
@@ -129,6 +142,10 @@ def get_ai_response(chat_id, user_text, special_mode=None, chosen_card=None, use
             response = requests.post(url, headers=headers, json=payload, timeout=12)
             if response.status_code == 200:
                 ai_answer = response.json()['choices'][0]['message']['content'].strip()
+                
+                # Принудительно убираем капс, если модель сорвалась на крик
+                ai_answer = fix_caps(ai_answer)
+                
                 if not special_mode:
                     data["history"].append({"role": "assistant", "content": ai_answer})
                 return ai_answer
@@ -283,10 +300,10 @@ def handle_number_click(call):
     send_smart_reply(chat_id, final_text, reply_markup=get_main_keyboard(chat_id))
 
 if __name__ == '__main__':
-    # Сначала корректно запускаем веб-сервер в отдельном потоке
+    # Запускаем фоновый веб-сервер Flask
     server_thread = Thread(target=run_web_server)
-    server_thread.daemon = True  # Поток умрет автоматически при выходе, не блокируя систему
+    server_thread.daemon = True
     server_thread.start()
     
-    # Затем запускаем бесконечный опрос Telegram API
+    # Запускаем бесконечный опрос Telegram бота
     bot.infinity_polling()
