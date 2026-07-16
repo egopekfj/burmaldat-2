@@ -1,17 +1,18 @@
 import os
 import random
+import asyncio
 import requests
 from threading import Thread
 from flask import Flask
 from telebot import TeleBot, types
-from gtts import gTTS
+import edge_tts
 
 # Микро-сервер для удержания Render в онлайне
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "Бурмалдат 2.0 с голосовым движком в сети!"
+    return "Бурмалдат 2.0 (Мужской Голос) в сети!"
 
 def run_web_server():
     port = int(os.environ.get("PORT", 8080))
@@ -47,13 +48,12 @@ SYSTEM_PROMPT = (
     "Шути самый жесткий черный юмор про семью, родственников, внезапные болезни, маразм и абсурдные ситуации. "
     "СТРОГОЕ ПРАВИЛО: Пиши все матерные слова ЦЕЛИКОМ БУКВАМИ. Никаких звездочек. "
     "КАЖДЫЙ раз придумывай абсолютно НОВУЮ, уникальную шизофреническую ситуацию. "
-    "Не повторяй одни и те же темы (про дурку, болото и т.д.). Будь максимально непредсказуемым! "
+    "Не повторяй одни и те же темы. Будь максимально непредсказуемым! "
     "ОТВЕЧАЙ СРЕДНЕ (примерно 4-7 предложений), выдавай концентрированный и проработанный трэш. "
     "НЕ пиши текст КАПСОМ. НЕ используй символы звезд '**'. Пиши чистым текстом."
 )
 
 # Хранилище контекста и настроек пользователей
-# Формат: {chat_id: {"history": [...], "voice_mode": True/False}}
 user_settings = {}
 
 def get_user_data(chat_id):
@@ -109,10 +109,11 @@ def get_ai_response(chat_id, user_text, special_mode=None, chosen_card=None, use
         {"role": "user", "content": prompt_text}
     ]
 
+    # Модели с минимальной цензурой
     models_to_try = [
-        "meta-llama/llama-3-8b-instruct:nitro", # Быстрая и менее цензуренная версия
-        "deepseek/deepseek-chat", # Если не перегружен, он выдает базу отлично
-        "gryphe/mythomax-l2-13b:free" # Бесплатная модель, которая вообще плевать хотела на цензуру
+        "meta-llama/llama-3-8b-instruct:nitro",
+        "deepseek/deepseek-chat",
+        "gryphe/mythomax-l2-13b:free"
     ]
     
     for model in models_to_try:
@@ -133,28 +134,31 @@ def get_ai_response(chat_id, user_text, special_mode=None, chosen_card=None, use
             
     return "Сука, сервера опять легли от твоего бреда! Напиши еще раз чуть позже."
 
-# Функция отправки ответа (текст или ГС в зависимости от режима)
+# Функция для асинхронной генерации мужского голоса через Edge-TTS
+async def generate_male_voice(text, filename):
+    # Очищаем текст от символов разметки
+    clean_text = text.replace("*", "").replace("_", "").replace("`", "")
+    # Используем крутой мужской голос Дмитрий (ru-RU-DmitryNeural)
+    communicate = edge_tts.Communicate(clean_text, "ru-RU-DmitryNeural")
+    await communicate.save(filename)
+
+# Функция отправки ответа (текст или брутальный ГС)
 def send_smart_reply(chat_id, text, reply_markup=None):
     data = get_user_data(chat_id)
     
     if data["voice_mode"]:
-        # Если включен режим ГС — генерируем озвучку
         try:
-            # Очищаем текст от Markdown-разметки для корректного чтения роботом
-            clean_text = text.replace("*", "").replace("_", "").replace("`", "")
-            tts = gTTS(text=clean_text, lang='ru')
             filename = f"voice_{chat_id}.ogg"
-            tts.save(filename)
+            # Запускаем асинхронную генерацию внутри синхронного кода Telebot
+            asyncio.run(generate_male_voice(text, filename))
             
             with open(filename, 'rb') as voice:
                 bot.send_voice(chat_id, voice, reply_markup=reply_markup)
                 
-            os.remove(filename) # Удаляем временный файл
+            os.remove(filename)
         except Exception as e:
-            # Если озвучка сломалась — страхуемся и шлем обычный текст
-            bot.send_message(chat_id, f"⚠️ Не удалось озвучить (ошибка: {e}), держи текстом:\n\n{text}", reply_markup=reply_markup, parse_mode='Markdown')
+            bot.send_message(chat_id, f"⚠️ Облачный голос сломался (ошибка: {e}), держи текстом:\n\n{text}", reply_markup=reply_markup, parse_mode='Markdown')
     else:
-        # Если текстовый режим — шлем обычное сообщение
         bot.send_message(chat_id, text, reply_markup=reply_markup, parse_mode='Markdown')
 
 def get_main_keyboard(chat_id):
@@ -166,7 +170,6 @@ def get_main_keyboard(chat_id):
     btn_oracle = types.KeyboardButton("🔮 Сраный оракул")
     btn_roast = types.KeyboardButton("🎯 Наехать на кореша")
     
-    # Кнопка-тумблер меняет название в зависимости от статуса
     voice_status = "🎙 Голосовой (ВКЛ)" if data["voice_mode"] else "📝 Текстовый (ВКЛ)"
     btn_toggle = types.KeyboardButton(f"⚙️ Режим: {voice_status}")
     
@@ -184,7 +187,7 @@ def get_numbers_keyboard():
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     chat_id = message.chat.id
-    welcome_text = "Здорова! Я твой обновленный Бурмалдат 2.0. Теперь я умею базарить голосом и разносить твоих друзей! 😈"
+    welcome_text = "Здорова! Я твой обновленный Бурмалдат 2.0. Теперь я базарю брутальным мужским голосом! 😈"
     bot.send_message(chat_id, welcome_text, reply_markup=get_main_keyboard(chat_id), parse_mode='Markdown')
 
 @bot.message_handler(func=lambda message: True)
@@ -194,12 +197,11 @@ def handle_all_messages(message):
     data = get_user_data(chat_id)
     
     if user_text.startswith("⚙️ Режим:"):
-        # Переключаем режим
         data["voice_mode"] = not data["voice_mode"]
-        status_text = "Голосовой 🎙" if data["voice_mode"] else "Текстовый 📝"
+        status_text = "Голосовой (Мужской) 🎙" if data["voice_mode"] else "Текстовый 📝"
         bot.send_message(
             chat_id, 
-            f"Принял! Теперь я буду отвечать в режиме: *{status_text}*", 
+            f"Принял! Теперь я буду вещать в режиме: *{status_text}*", 
             reply_markup=get_main_keyboard(chat_id), 
             parse_mode='Markdown'
         )
@@ -234,7 +236,6 @@ def handle_all_messages(message):
         answer = get_ai_response(chat_id, user_text)
         send_smart_reply(chat_id, answer, reply_markup=get_main_keyboard(chat_id))
 
-# Шаг обработки имени кореша
 def process_friend_roast(message):
     chat_id = message.chat.id
     friend_name = message.text
@@ -253,7 +254,6 @@ def process_friend_roast(message):
     final_text = f"🔥 *Прожарка для {friend_name}:*\n\n{answer}"
     send_smart_reply(chat_id, final_text, reply_markup=get_main_keyboard(chat_id))
 
-# Обработка нажатия на инлайн-кнопку с числом в оракуле
 @bot.callback_query_handler(func=lambda call: call.data.startswith('num_'))
 def handle_number_click(call):
     chat_id = call.message.chat.id
