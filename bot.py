@@ -68,25 +68,33 @@ def get_user_data(chat_id):
         }
     return user_settings[chat_id]
 
-# Исправленная функция для принудительного исправления капса
+# Настоящая бронебойная функция исправления регистра предложений
 def fix_caps(text):
-    # Если в тексте больше 50% заглавных букв, значит модель орет
+    # Сначала проверяем, сорвалась ли модель на жесткий ор капсом
     letters = [char for char in text if char.isalpha()]
     if letters:
         caps_ratio = sum(1 for char in letters if char.isupper()) / len(letters)
-        if caps_ratio > 0.5:
-            # Сначала полностью уменьшаем весь текст
+        if caps_ratio > 0.4:  # Порог чувствительности к капсу снижен
             text = text.lower()
-            
-            # Делим текст на предложения по знакам окончания (. ! ?)
-            # и делаем первую букву каждого предложения заглавной
-            def capitalize_sentence(match):
-                return match.group(1) + match.group(2).upper()
-            
-            # Ищем начало текста или символы конца предложения (.!?), за которыми идут пробелы и буква
-            text = re.sub(r'(^|[.!?]\s+)([а-яёa-z])', capitalize_sentence, text)
-            
-    return text
+
+    # А теперь красиво и гарантированно делаем заглавными буквы в начале каждого предложения,
+    # даже если текст просто пришел строчным или был уменьшен.
+    sentences = re.split(r'([.!?]\s*)', text)
+    processed_parts = []
+    
+    # Каждое нечетное слово в списке split — это текст предложения, четное — разделитель (.!?)
+    for i, part in enumerate(sentences):
+        if i % 2 == 0:
+            # Находим первую букву в предложении и делаем её заглавной
+            stripped = part.lstrip()
+            if stripped:
+                capitalized = stripped[0].upper() + stripped[1:]
+                # Возвращаем пробелы обратно, если они были стерты lstrip()
+                leading_spaces = len(part) - len(stripped)
+                part = (" " * leading_spaces) + capitalized
+        processed_parts.append(part)
+        
+    return "".join(processed_parts)
 
 def get_ai_response(chat_id, user_text, special_mode=None, chosen_card=None, user_number=None, target_friend=None):
     url = "https://openrouter.ai/api/v1/chat/completions"
