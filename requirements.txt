@@ -1,4 +1,4 @@
 pyTelegramBotAPI
 requests
-gTTS
+edge-tts
 Flask
