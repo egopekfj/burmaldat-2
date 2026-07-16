@@ -110,9 +110,9 @@ def get_ai_response(chat_id, user_text, special_mode=None, chosen_card=None, use
     ]
 
     models_to_try = [
-        "deepseek/deepseek-chat",
-        "microsoft/phi-3-medium-128k-instruct:free",
-        "meta-llama/llama-3-8b-instruct:free"
+        "meta-llama/llama-3-8b-instruct:nitro", # Быстрая и менее цензуренная версия
+        "deepseek/deepseek-chat", # Если не перегружен, он выдает базу отлично
+        "gryphe/mythomax-l2-13b:free" # Бесплатная модель, которая вообще плевать хотела на цензуру
     ]
     
     for model in models_to_try:
