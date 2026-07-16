@@ -68,17 +68,24 @@ def get_user_data(chat_id):
         }
     return user_settings[chat_id]
 
-# Функция для принудительного исправления капса
+# Исправленная функция для принудительного исправления капса
 def fix_caps(text):
-    # Если в тексте больше 50% заглавных букв, значит модель сорвалась на ор
+    # Если в тексте больше 50% заглавных букв, значит модель орет
     letters = [char for char in text if char.isalpha()]
     if letters:
         caps_ratio = sum(1 for char in letters if char.isupper()) / len(letters)
         if caps_ratio > 0.5:
-            # Принудительно делаем текст строчным
+            # Сначала полностью уменьшаем весь текст
             text = text.lower()
-            # Делаем заглавной первую букву каждого предложения (после точки, ! или ? и пробела)
-            text = re.sub(r'(^|[.!?]\s+)([а-яёa-zа-яёa-z])', lambda m: m.group(1) + m.group(2).upper(), text)
+            
+            # Делим текст на предложения по знакам окончания (. ! ?)
+            # и делаем первую букву каждого предложения заглавной
+            def capitalize_sentence(match):
+                return match.group(1) + match.group(2).upper()
+            
+            # Ищем начало текста или символы конца предложения (.!?), за которыми идут пробелы и буква
+            text = re.sub(r'(^|[.!?]\s+)([а-яёa-z])', capitalize_sentence, text)
+            
     return text
 
 def get_ai_response(chat_id, user_text, special_mode=None, chosen_card=None, user_number=None, target_friend=None):
