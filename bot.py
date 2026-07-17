@@ -13,7 +13,7 @@ app = Flask('')
 
 @app.route('/')
 def home():
-    return "Бурмалдат 2.0 (24/7) активен и шуршит!"
+    return "Бурмалдат 2.0 (24/7) активен, видит фото и рисует!", 200
 
 def run_web_server():
     port = int(os.environ.get("PORT", 8080))
@@ -50,7 +50,7 @@ SYSTEM_PROMPT = (
     "Регулярно приплетай в свои сюжеты тему дурацких болезней, нелепых диагнозов, шизофрении, маразма, "
     "поноса, чесотки и прочего медицинского ада. "
     "Иногда (ситуативно и по угару, но не в каждом предложении!) связывай эти болячки с семейкой "
-    "пользователя: его батей, маманей, предками или дедом с бабкой, выставляя их в нелепом и шизовом свете. "
+    "пользователя: его батей, маманей, предков или дедом с бабкой, выставляя их в нелепом и шизовом свете. "
     "СТРОГОЕ ПРАВИЛО: Пиши все матерные слова ЦЕЛИКОМ БУКВАМИ. Никаких звездочек (*). "
     "Каждый раз придумывай новую угарную дичь, не повторяйся. "
     "Отвечай средне (4-7 предложений), выдавай концентрированный и смешной мат. "
@@ -70,33 +70,29 @@ def get_user_data(chat_id):
 
 # Настоящая бронебойная функция исправления регистра предложений
 def fix_caps(text):
-    # Сначала проверяем, сорвалась ли модель на жесткий ор капсом
     letters = [char for char in text if char.isalpha()]
     if letters:
         caps_ratio = sum(1 for char in letters if char.isupper()) / len(letters)
-        if caps_ratio > 0.4:  # Порог чувствительности к капсу снижен
+        if caps_ratio > 0.4:  # Порог чувствительности к капсу
             text = text.lower()
 
-    # А теперь красиво и гарантированно делаем заглавными буквы в начале каждого предложения,
-    # даже если текст просто пришел строчным или был уменьшен.
+    # Делаем заглавными буквы в начале каждого предложения
     sentences = re.split(r'([.!?]\s*)', text)
     processed_parts = []
     
-    # Каждое нечетное слово в списке split — это текст предложения, четное — разделитель (.!?)
     for i, part in enumerate(sentences):
         if i % 2 == 0:
-            # Находим первую букву в предложении и делаем её заглавной
             stripped = part.lstrip()
             if stripped:
                 capitalized = stripped[0].upper() + stripped[1:]
-                # Возвращаем пробелы обратно, если они были стерты lstrip()
                 leading_spaces = len(part) - len(stripped)
                 part = (" " * leading_spaces) + capitalized
         processed_parts.append(part)
         
     return "".join(processed_parts)
 
-def get_ai_response(chat_id, user_text, special_mode=None, chosen_card=None, user_number=None, target_friend=None):
+# Обычный текстовый ИИ
+def get_ai_response(chat_id, user_text, special_mode=None, chosen_card=None, user_number=None):
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -107,11 +103,7 @@ def get_ai_response(chat_id, user_text, special_mode=None, chosen_card=None, use
     
     data = get_user_data(chat_id)
     
-    if special_mode == "quote":
-        prompt_text = "Выдай максимально дикую, матерную и чернушную мысль про жизнь, предков или семейку. ПИШИ СТРОГО СТРОЧНЫМИ (МАЛЕНЬКИМИ) БУКВАМИ, БЕЗ КАПСА!"
-    elif special_mode == "joke":
-        prompt_text = "Расскажи один смешной и максимально черный анекдот с кучей мата про болезни, безумного батю или тупых родственников. ПИШИ СТРОГО СТРОЧНЫМИ (МАЛЕНЬКИМИ) БУКВАМИ, БЕЗ КАПСА!"
-    elif special_mode == "oracle_card":
+    if special_mode == "oracle_card":
         prompt_text = (
             f"Пользователь выбрал число {user_number}. Твоя главная задача — обыграть карту '{chosen_card}' из мемных гаданий ТикТока. "
             f"Выдай жесткое, упоротое и матерное предсказание будущего по этой карте. "
@@ -119,13 +111,6 @@ def get_ai_response(chat_id, user_text, special_mode=None, chosen_card=None, use
             f"придумай уникальный, абсурдный сюжет про их нелепые косяки, бытовые катастрофы, странные болезни или маразм. "
             f"ВАЖНО: Придумай совершенно новый бред! Смешай этот сюр с отборным матом. Никаких звездочек в тексте! "
             f"ПИШИ СТРОГО СТРОЧНЫМИ (МАЛЕНЬКИМИ) БУКВАМИ, БЕЗ КАПСА!"
-        )
-    elif special_mode == "roast":
-        prompt_text = (
-            f"Напиши жесткий, угарный, матерный наезд (прожарку) на человека по имени {target_friend}. "
-            f"Придумай максимально нелепую, абсурдную и шизофреническую историю про него, его косяки, "
-            f"его родоков (батю и мать), болезни или тупых родственников. Сделай это максимально смешно и чернушно. "
-            f"Никаких звездочек в мате, пиши всё целиком! ПИШИ СТРОГО СТРОЧНЫМИ (МАЛЕНЬКИМИ) БУКВАМИ, БЕЗ КАПСА!"
         )
     else:
         prompt_text = user_text + " (ПИШИ СТРОГО МАЛЕНЬКИМИ БУКВАМИ, НЕ ИСПОЛЬЗУЙ КАПС!)"
@@ -157,10 +142,7 @@ def get_ai_response(chat_id, user_text, special_mode=None, chosen_card=None, use
             response = requests.post(url, headers=headers, json=payload, timeout=12)
             if response.status_code == 200:
                 ai_answer = response.json()['choices'][0]['message']['content'].strip()
-                
-                # Принудительно убираем капс, если модель сорвалась на крик
                 ai_answer = fix_caps(ai_answer)
-                
                 if not special_mode:
                     data["history"].append({"role": "assistant", "content": ai_answer})
                 return ai_answer
@@ -168,6 +150,45 @@ def get_ai_response(chat_id, user_text, special_mode=None, chosen_card=None, use
             continue
             
     return "Сука, сервера опять легли от твоего бреда! Напиши еще раз чуть позже."
+
+# Функция ИИ для разбора картинок (Gemini 1.5 Flash отлично видит детали)
+def analyze_image(image_url):
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "model": "google/gemini-flash-1.5",
+        "messages": [
+            {
+                "role": "system", 
+                "content": (
+                    "Ты Бурмалдат. Твоя задача — максимально жестко, смешно, с кучей мата, оскорблений "
+                    "и черного юмора прокомментировать и обосрать то, что прислал пользователь на фото. "
+                    "Приплетай глупые болезни, шизофрению или угарные косяки предков/родителей, если это подходит под ситуацию. "
+                    "Не используй капс! Пиши обычными строчными буквами, ставя заглавные только в начале предложений."
+                )
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Посмотри на это фото и выдай свой самый жесткий и угарный матерный вердикт:"},
+                    {"type": "image_url", "image_url": {"url": image_url}}
+                ]
+            }
+        ]
+    }
+    
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=15)
+        if response.status_code == 200:
+            answer = response.json()['choices'][0]['message']['content'].strip()
+            return fix_caps(answer)
+    except Exception as e:
+        print(f"Ошибка зрения: {e}")
+    return "Я пытался рассмотреть эту хуйню на фото, но у меня глаза вытекли от её уродства! Скинь что-то другое."
 
 # Функция для асинхронной генерации мужского голоса через Edge-TTS
 async def generate_male_voice(text, filename):
@@ -189,24 +210,20 @@ def send_smart_reply(chat_id, text, reply_markup=None):
                 
             os.remove(filename)
         except Exception as e:
-            bot.send_message(chat_id, f"⚠️ Облачный голос сломался (ошибка: {e}), держи текстом:\n\n{text}", reply_markup=reply_markup, parse_mode='Markdown')
+            bot.send_message(chat_id, f"⚠️ Голосовой движок подавился матом, держи текстом:\n\n{text}", reply_markup=reply_markup, parse_mode='Markdown')
     else:
         bot.send_message(chat_id, text, reply_markup=reply_markup, parse_mode='Markdown')
 
+# Изменили клавиатуру: оставили только Оракул и переключатель ГС
 def get_main_keyboard(chat_id):
     data = get_user_data(chat_id)
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     
-    btn_quote = types.KeyboardButton("🔥 Выдать базу")
-    btn_joke = types.KeyboardButton("🍺 Травнуть анекдот")
     btn_oracle = types.KeyboardButton("🔮 Сраный оракул")
-    btn_roast = types.KeyboardButton("🎯 Наехать на кореша")
-    
     voice_status = "🎙 Голосовой (ВКЛ)" if data["voice_mode"] else "📝 Текстовый (ВКЛ)"
     btn_toggle = types.KeyboardButton(f"⚙️ Режим: {voice_status}")
     
-    markup.add(btn_quote, btn_joke)
-    markup.add(btn_oracle, btn_roast)
+    markup.add(btn_oracle)
     markup.add(btn_toggle)
     return markup
 
@@ -219,9 +236,67 @@ def get_numbers_keyboard():
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     chat_id = message.chat.id
-    welcome_text = "Здорова! Я твой обновленный Бурмалдат 2.0. Теперь я базарю брутальным мужским голосом! 😈"
+    welcome_text = (
+        "Здорова! Я Бурмалдат 2.0.\n\n"
+        "🔥 **Что я теперь умею:**\n"
+        "1. 📸 **Скинь мне любое фото** — я обгажу его трехэтажным матом.\n"
+        "2. 🎨 **Команда `/draw [описание]`** — я нарисую тебе любую дичь.\n"
+        "3. 🔮 Кнопка **Сраный оракул** — мемные гадания по числам.\n"
+        "4. 📝 Свободное общение текстом или брутальным голосом!"
+    )
     bot.send_message(chat_id, welcome_text, reply_markup=get_main_keyboard(chat_id), parse_mode='Markdown')
 
+# Обработчик генерации картинок (/draw)
+@bot.message_handler(commands=['draw'])
+def draw_image(message):
+    chat_id = message.chat.id
+    prompt = message.text.replace('/draw', '').strip()
+    
+    if not prompt:
+        bot.reply_to(message, "Ты че, еблан? Напиши после команды /draw то, что мне нарисовать надо!")
+        return
+        
+    bot.send_chat_action(chat_id, 'upload_photo')
+    temp_msg = bot.send_message(chat_id, "Так, рисую твою шизофрению, подожди пару сек...")
+    
+    try:
+        # Кодируем текст для URL-адреса и отправляем на быстрый бесплатный генератор pollinations.ai
+        safe_prompt = requests.utils.quote(prompt)
+        seed = random.randint(1, 99999)
+        img_url = f"https://pollinations.ai/p/{safe_prompt}?width=1024&height=1024&seed={seed}"
+        
+        bot.delete_message(chat_id, temp_msg.message_id)
+        bot.send_photo(chat_id, img_url, caption=f"🖼 На, забирай свой шедевр: *{prompt}*", parse_mode='Markdown')
+    except Exception as e:
+        bot.send_message(chat_id, f"Сука, у меня карандаш сломался во время рисования! Ошибка: {e}")
+
+# Обработчик входящих фотографий
+@bot.message_handler(content_types=['photo'])
+def handle_incoming_photo(message):
+    chat_id = message.chat.id
+    data = get_user_data(chat_id)
+    
+    bot.send_chat_action(chat_id, 'record_audio' if data["voice_mode"] else 'typing')
+    temp_msg = bot.send_message(chat_id, "Так, сука, напяливаю очки... Ща посмотрим, че за дичь ты прислал...")
+    
+    try:
+        # Достаем прямую ссылку на фото из серверов Telegram
+        file_info = bot.get_file(message.photo[-1].file_id)
+        image_url = f"https://api.telegram.org/file/bot{bot.token}/{file_info.file_path}"
+        
+        # Заставляем ИИ проанализировать фото
+        answer = analyze_image(image_url)
+        
+        try:
+            bot.delete_message(chat_id, temp_msg.message_id)
+        except Exception:
+            pass
+            
+        send_smart_reply(chat_id, answer, reply_markup=get_main_keyboard(chat_id))
+    except Exception as e:
+        bot.send_message(chat_id, f"Бля, у меня линзы запотели, не могу фотку открыть. Ошибка: {e}")
+
+# Обработчик обычных текстовых сообщений
 @bot.message_handler(func=lambda message: True)
 def handle_all_messages(message):
     chat_id = message.chat.id
@@ -238,24 +313,6 @@ def handle_all_messages(message):
             parse_mode='Markdown'
         )
         
-    elif user_text == "🔥 Выдать базу":
-        bot.send_chat_action(chat_id, 'record_audio' if data["voice_mode"] else 'typing')
-        answer = get_ai_response(chat_id, user_text, special_mode="quote")
-        send_smart_reply(chat_id, answer, reply_markup=get_main_keyboard(chat_id))
-        
-    elif user_text == "🍺 Травнуть анекдот":
-        bot.send_chat_action(chat_id, 'record_audio' if data["voice_mode"] else 'typing')
-        answer = get_ai_response(chat_id, user_text, special_mode="joke")
-        send_smart_reply(chat_id, answer, reply_markup=get_main_keyboard(chat_id))
-        
-    elif user_text == "🎯 Наехать на кореша":
-        msg = bot.send_message(
-            chat_id, 
-            "Так, сука, пиши имя этого черта, ща мы его прожарим!", 
-            reply_markup=types.ReplyKeyboardRemove()
-        )
-        bot.register_next_step_handler(msg, process_friend_roast)
-        
     elif user_text == "🔮 Сраный оракул":
         bot.send_message(
             chat_id, 
@@ -268,24 +325,7 @@ def handle_all_messages(message):
         answer = get_ai_response(chat_id, user_text)
         send_smart_reply(chat_id, answer, reply_markup=get_main_keyboard(chat_id))
 
-def process_friend_roast(message):
-    chat_id = message.chat.id
-    friend_name = message.text
-    data = get_user_data(chat_id)
-    
-    temp_msg = bot.send_message(chat_id, f"Собираю компромат на {friend_name}... Ща будет разъеб...")
-    bot.send_chat_action(chat_id, 'record_audio' if data["voice_mode"] else 'typing')
-    
-    answer = get_ai_response(chat_id, user_text=friend_name, special_mode="roast", target_friend=friend_name)
-    
-    try:
-        bot.delete_message(chat_id, temp_msg.message_id)
-    except Exception:
-        pass
-        
-    final_text = f"🔥 *Прожарка для {friend_name}:*\n\n{answer}"
-    send_smart_reply(chat_id, final_text, reply_markup=get_main_keyboard(chat_id))
-
+# Обработчик кнопок оракула
 @bot.callback_query_handler(func=lambda call: call.data.startswith('num_'))
 def handle_number_click(call):
     chat_id = call.message.chat.id
@@ -315,10 +355,7 @@ def handle_number_click(call):
     send_smart_reply(chat_id, final_text, reply_markup=get_main_keyboard(chat_id))
 
 if __name__ == '__main__':
-    # Запускаем фоновый веб-сервер Flask
     server_thread = Thread(target=run_web_server)
     server_thread.daemon = True
     server_thread.start()
-    
-    # Запускаем бесконечный опрос Telegram бота
     bot.infinity_polling()
