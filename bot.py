@@ -151,7 +151,7 @@ def get_ai_response(chat_id, user_text, special_mode=None, chosen_card=None, use
             
     return "Сука, сервера опять легли от твоего бреда! Напиши еще раз чуть позже."
 
-# Полностью бесплатная функция зрения без требований к балансу OpenRouter
+# Полностью БЕСПЛАТНОЕ и неубиваемое зрение для Бурмалдата
 def analyze_image(image_url):
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
@@ -162,7 +162,7 @@ def analyze_image(image_url):
     }
     
     payload = {
-        # Используем полностью БЕСПЛАТНУЮ модель с поддержкой зрения (Vision)
+        # Переключаемся на 100% БЕСПЛАТНУЮ модель с поддержкой зрения (Vision)
         "model": "meta-llama/llama-3.2-11b-vision-instruct:free",
         "messages": [
             {
@@ -184,26 +184,26 @@ def analyze_image(image_url):
         ]
     }
     
+    # Первая попытка через стандартный бесплатный роут Llama 3.2 Vision
     try:
         response = requests.post(url, headers=headers, json=payload, timeout=20)
         if response.status_code == 200:
             answer = response.json()['choices'][0]['message']['content'].strip()
             return fix_caps(answer)
         else:
-            # Если OpenRouter вернул ошибку, мы запишем её в логи сервера
-            print(f"Ошибка OpenRouter: {response.status_code} - {response.text}")
+            print(f"Ошибка OpenRouter (Llama Vision): {response.status_code} - {response.text}")
     except Exception as e:
-        print(f"Ошибка соединения при анализе фото: {e}")
+        print(f"Ошибка первой попытки анализа фото: {e}")
         
-    # Если бесплатная Llama-3.2-Vision временно легла, пробуем запасную бесплатную модель зрения
+    # Запасная попытка через альтернативный роут, если первый лежит
     try:
-        payload["model"] = "free/meta-llama/llama-3.2-11b-vision-instruct" # Запасной адрес бесплатной модели
+        payload["model"] = "free/meta-llama/llama-3.2-11b-vision-instruct"
         response = requests.post(url, headers=headers, json=payload, timeout=20)
         if response.status_code == 200:
             answer = response.json()['choices'][0]['message']['content'].strip()
             return fix_caps(answer)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Ошибка запасной попытки анализа фото: {e}")
         
     return "Я пытался рассмотреть эту хуйню на фото, но у меня глаза вытекли от её уродства! Скинь что-то другое."
 
