@@ -151,7 +151,9 @@ def get_ai_response(chat_id, user_text, special_mode=None, chosen_card=None, use
             
     return "Сука, сервера опять легли от твоего бреда! Напиши еще раз чуть позже."
 
-# Полностью БЕСПЛАТНОЕ и неубиваемое зрение для Бурмалдата
+# Настоящее неубиваемое зрение через скачивание фото в Base64
+import base64
+
 def analyze_image(image_url):
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
@@ -161,51 +163,55 @@ def analyze_image(image_url):
         "X-Title": "Burmaldat Bot"
     }
     
-    payload = {
-        # Переключаемся на 100% БЕСПЛАТНУЮ модель с поддержкой зрения (Vision)
-        "model": "meta-llama/llama-3.2-11b-vision-instruct:free",
-        "messages": [
-            {
-                "role": "system", 
-                "content": (
-                    "Ты Бурмалдат. Твоя задача — максимально жестко, смешно, с кучей мата, оскорблений "
-                    "и черного юмора прокомментировать и обосрать то, что прислал пользователь на фото. "
-                    "Приплетай глупые болезни, шизофрению или угарные косяки предков/родителей, если это подходит под ситуацию. "
-                    "Не используй капс! Пиши обычными строчными буквами, ставя заглавные только в начале предложений."
-                )
-            },
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "Посмотри на это фото и выдай свой самый жесткий и угарный матерный вердикт:"},
-                    {"type": "image_url", "image_url": {"url": image_url}}
-                ]
-            }
-        ]
-    }
-    
-    # Первая попытка через стандартный бесплатный роут Llama 3.2 Vision
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=20)
+        # 1. Скачиваем картинку напрямую в память бота
+        img_response = requests.get(image_url, timeout=15)
+        if img_response.status_code != 200:
+            print(f"Не удалось скачать фото из Telegram: {img_response.status_code}")
+            return "Слышь, я попытался забрать твою фотку у Дурова, но сервера телеги меня послали нахер. Попробуй еще раз."
+        
+        # 2. Кодируем её в base64
+        base64_image = base64.b64encode(img_response.content).decode('utf-8')
+        
+        # 3. Собираем запрос с готовой картинкой внутри
+        payload = {
+            "model": "meta-llama/llama-3.2-11b-vision-instruct:free",
+            "messages": [
+                {
+                    "role": "system", 
+                    "content": (
+                        "Ты Бурмалдат. Твоя задача — максимально жестко, смешно, с кучей мата, оскорблений "
+                        "и черного юмора прокомментировать и обосрать то, что прислал пользователь на фото. "
+                        "Приплетай глупые болезни, шизофрению или угарные косяки предков/родителей, если это подходит под ситуацию. "
+                        "Не используй капс! Пиши обычными строчными буквами, ставя заглавные только в начале предложений."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Посмотри на это фото и выдай свой самый жесткий и угарный матерный вердикт:"},
+                        {
+                            "type": "image_url", 
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_image}"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+        
+        response = requests.post(url, headers=headers, json=payload, timeout=25)
         if response.status_code == 200:
             answer = response.json()['choices'][0]['message']['content'].strip()
             return fix_caps(answer)
         else:
-            print(f"Ошибка OpenRouter (Llama Vision): {response.status_code} - {response.text}")
+            print(f"Ошибка OpenRouter: {response.status_code} - {response.text}")
+            
     except Exception as e:
-        print(f"Ошибка первой попытки анализа фото: {e}")
+        print(f"Критическая ошибка при обработке фото: {e}")
         
-    # Запасная попытка через альтернативный роут, если первый лежит
-    try:
-        payload["model"] = "free/meta-llama/llama-3.2-11b-vision-instruct"
-        response = requests.post(url, headers=headers, json=payload, timeout=20)
-        if response.status_code == 200:
-            answer = response.json()['choices'][0]['message']['content'].strip()
-            return fix_caps(answer)
-    except Exception as e:
-        print(f"Ошибка запасной попытки анализа фото: {e}")
-        
-    return "Я пытался рассмотреть эту хуйню на фото, но у меня глаза вытекли от её уродства! Скинь что-то другое."
+    return "Я пытался рассмотреть эту хуйню на фото, но у меня eyes вытекли от её уродства! Скинь что-то другое."
 
 # Функция для асинхронной генерации мужского голоса через Edge-TTS
 async def generate_male_voice(text, filename):
