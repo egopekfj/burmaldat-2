@@ -246,7 +246,7 @@ def send_welcome(message):
     )
     bot.send_message(chat_id, welcome_text, reply_markup=get_main_keyboard(chat_id), parse_mode='Markdown')
 
-# Обработчик генерации картинок (/draw)
+# Полностью исправленный и неубиваемый обработчик генерации картинок (/draw)
 @bot.message_handler(commands=['draw'])
 def draw_image(message):
     chat_id = message.chat.id
@@ -260,14 +260,25 @@ def draw_image(message):
     temp_msg = bot.send_message(chat_id, "Так, рисую твою шизофрению, подожди пару сек...")
     
     try:
-        # Кодируем текст для URL-адреса и отправляем на быстрый бесплатный генератор pollinations.ai
+        # Кодируем текст для URL
         safe_prompt = requests.utils.quote(prompt)
         seed = random.randint(1, 99999)
-        img_url = f"https://pollinations.ai/p/{safe_prompt}?width=1024&height=1024&seed={seed}"
+        img_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=1024&height=1024&seed={seed}&nologo=true"
         
-        bot.delete_message(chat_id, temp_msg.message_id)
-        bot.send_photo(chat_id, img_url, caption=f"🖼 На, забирай свой шедевр: *{prompt}*", parse_mode='Markdown')
+        # Скачиваем саму картинку в память сервера
+        response = requests.get(img_url, timeout=20)
+        if response.status_code == 200:
+            # Отправляем скачанную картинку как полноценный файл
+            bot.delete_message(chat_id, temp_msg.message_id)
+            bot.send_photo(chat_id, response.content, caption=f"🖼 На, забирай свой шедевр: *{prompt}*", parse_mode='Markdown')
+        else:
+            bot.edit_message_text(chat_id=chat_id, message_id=temp_msg.message_id, text="Сука, художнику не заплатили! Сервер картинок выдал ошибку.")
+            
     except Exception as e:
+        try:
+            bot.delete_message(chat_id, temp_msg.message_id)
+        except:
+            pass
         bot.send_message(chat_id, f"Сука, у меня карандаш сломался во время рисования! Ошибка: {e}")
 
 # Обработчик входящих фотографий
