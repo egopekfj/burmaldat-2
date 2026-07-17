@@ -171,9 +171,9 @@ def analyze_image(image_url):
         # 2. Кодируем в Base64
         base64_image = base64.b64encode(img_response.content).decode('utf-8')
         
-        # 3. Запрос к OpenRouter с БЕСПЛАТНОЙ моделью Gemini 2.5 Flash
+        # 3. Запрос к OpenRouter через динамический бесплатный роутер
         payload = {
-            "model": "google/gemini-2.5-flash:free",  # Пересели на актуальную халяву
+            "model": "openrouter/free",  # Роутер сам выберет живую бесплатную Vision-модель!
             "messages": [
                 {
                     "role": "system", 
@@ -205,7 +205,7 @@ def analyze_image(image_url):
             answer = response.json()['choices'][0]['message']['content'].strip()
             return fix_caps(answer)
         else:
-            # Если опять что-то не так, бот сразу покажет ошибку
+            # Если даже роутер выдаст ошибку, мы сразу её увидим
             return f"❌ OpenRouter вернул ошибку {response.status_code}: {response.text[:300]}"
             
     except Exception as e:
