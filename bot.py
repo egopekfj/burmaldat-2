@@ -26,9 +26,10 @@ DB_FILE = "players_db.json"
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
-        self.send_header("Content-type", "text/html")
+        self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
-        self.wfile.write(b"Бурмалдат онлайн и готов к работе!")
+        # ИСПРАВЛЕНО: кодируем кириллицу в utf-8, чтобы Render не ругался на синтаксис
+        self.wfile.write("Бурмалдат онлайн и готов к работе!".encode('utf-8'))
     def log_message(self, format, *args):
         return  # Отключаем спам логов в консоли
 
@@ -139,7 +140,6 @@ def generate_image_pollinations(prompt):
 # СБОРКА ПРОМПТА И КОЛОДА ОРАКУЛА
 # ============================================================================
 
-# Твои старые карты на месте!
 TAROT_CARDS = [
     "Сова на Скакалке", "Масонская Розетка", "Башня Откисшего Сервера", 
     "Тройка Батиных Семейников", "Туз Всратого Бомжа", "Колесо Фортуны Бурмалдата", 
@@ -323,12 +323,11 @@ def ask_openrouter(system_prompt, user_text=None, image_base64=None):
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {"Authorization": f"Bearer {OPENROUTER_API_KEY}", "Content-Type": "application/json"}
     
-    # Фиксируем стабильную модель, чтобы избежать кривых фильтров Llama Guard на openrouter/free
     model_name = "meta-llama/llama-3.1-8b-instruct:free"
     messages = [{"role": "system", "content": system_prompt}]
     
     if image_base64:
-        model_name = "google/gemini-flash-1.5-8b:free"  # Для работы с фото нужна мультимодальная модель
+        model_name = "google/gemini-flash-1.5-8b:free"  
         messages.append({
             "role": "user",
             "content": [
@@ -346,7 +345,6 @@ def ask_openrouter(system_prompt, user_text=None, image_base64=None):
         if response.status_code == 200:
             content = response.json()['choices'][0]['message']['content'].strip()
             
-            # ПЕРЕХВАТ ОШИБКИ БЕЗОПАСНОСТИ OPENROUTER
             if "user safety:" in content.lower() or "safety categories:" in content.lower():
                 if "Ты Святой" in system_prompt:
                     return "Братенька, что-то помыслы или слова твои слишком смутные для нашей обители. Давай лучше о светлом поговорим!"
@@ -400,12 +398,10 @@ def handle_text(message):
     player = get_or_create_player(chat_id, message.from_user.first_name)
     settings = player["settings"]
     
-    # Прогоняем стандартный чат через единую функцию ask_openrouter
     answer = ask_openrouter(build_system_prompt(settings), user_text=message.text)
     send_final_reply(chat_id, message.message_id, answer, settings["voice_format"])
 
 if __name__ == "__main__":
-    # Запуск встроенного веб-сервера в фоновом потоке для Render (снимет статус In Progress за секунды)
     server_thread = Thread(target=run_health_server, daemon=True)
     server_thread.start()
     
