@@ -171,9 +171,9 @@ def analyze_image(image_url):
         # 2. Кодируем в Base64
         base64_image = base64.b64encode(img_response.content).decode('utf-8')
         
-        # 3. Запрос к OpenRouter
+        # 3. Запрос к OpenRouter с БЕСПЛАТНОЙ моделью Gemini 2.5 Flash
         payload = {
-            "model": "meta-llama/llama-3.2-11b-vision-instruct:free",
+            "model": "google/gemini-2.5-flash:free",  # Пересели на актуальную халяву
             "messages": [
                 {
                     "role": "system", 
@@ -205,11 +205,10 @@ def analyze_image(image_url):
             answer = response.json()['choices'][0]['message']['content'].strip()
             return fix_caps(answer)
         else:
-            # Если OpenRouter вернул ошибку, бот пришлет её текст прямо в чат!
+            # Если опять что-то не так, бот сразу покажет ошибку
             return f"❌ OpenRouter вернул ошибку {response.status_code}: {response.text[:300]}"
             
     except Exception as e:
-        # Если упал сам Python-код
         return f"❌ Системная ошибка в коде бота: {str(e)}"
 
 # Функция для асинхронной генерации мужского голоса через Edge-TTS
