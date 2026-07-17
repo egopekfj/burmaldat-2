@@ -151,7 +151,6 @@ def get_ai_response(chat_id, user_text, special_mode=None, chosen_card=None, use
             
     return "Сука, сервера опять легли от твоего бреда! Напиши еще раз чуть позже."
 
-# Настоящее неубиваемое зрение через скачивание фото в Base64
 import base64
 
 def analyze_image(image_url):
@@ -164,16 +163,15 @@ def analyze_image(image_url):
     }
     
     try:
-        # 1. Скачиваем картинку напрямую в память бота
+        # 1. Пробуем скачать картинку
         img_response = requests.get(image_url, timeout=15)
         if img_response.status_code != 200:
-            print(f"Не удалось скачать фото из Telegram: {img_response.status_code}")
-            return "Слышь, я попытался забрать твою фотку у Дурова, но сервера телеги меня послали нахер. Попробуй еще раз."
+            return f"❌ Ошибка скачивания фото из TG. Статус-код: {img_response.status_code}"
         
-        # 2. Кодируем её в base64
+        # 2. Кодируем в Base64
         base64_image = base64.b64encode(img_response.content).decode('utf-8')
         
-        # 3. Собираем запрос с готовой картинкой внутри
+        # 3. Запрос к OpenRouter
         payload = {
             "model": "meta-llama/llama-3.2-11b-vision-instruct:free",
             "messages": [
@@ -183,7 +181,7 @@ def analyze_image(image_url):
                         "Ты Бурмалдат. Твоя задача — максимально жестко, смешно, с кучей мата, оскорблений "
                         "и черного юмора прокомментировать и обосрать то, что прислал пользователь на фото. "
                         "Приплетай глупые болезни, шизофрению или угарные косяки предков/родителей, если это подходит под ситуацию. "
-                        "Не используй капс! Пиши обычными строчными буквами, ставя заглавные только в начале предложений."
+                        "Не используй капс!"
                     )
                 },
                 {
@@ -202,16 +200,17 @@ def analyze_image(image_url):
         }
         
         response = requests.post(url, headers=headers, json=payload, timeout=25)
+        
         if response.status_code == 200:
             answer = response.json()['choices'][0]['message']['content'].strip()
             return fix_caps(answer)
         else:
-            print(f"Ошибка OpenRouter: {response.status_code} - {response.text}")
+            # Если OpenRouter вернул ошибку, бот пришлет её текст прямо в чат!
+            return f"❌ OpenRouter вернул ошибку {response.status_code}: {response.text[:300]}"
             
     except Exception as e:
-        print(f"Критическая ошибка при обработке фото: {e}")
-        
-    return "Я пытался рассмотреть эту хуйню на фото, но у меня eyes вытекли от её уродства! Скинь что-то другое."
+        # Если упал сам Python-код
+        return f"❌ Системная ошибка в коде бота: {str(e)}"
 
 # Функция для асинхронной генерации мужского голоса через Edge-TTS
 async def generate_male_voice(text, filename):
